@@ -182,6 +182,10 @@ public:
                     sink = std::move(sink).resume();
                 }
             }
+            catch (const boost::context::detail::forced_unwind &)
+            {
+                throw;
+            }
             catch (...)
             {
                 read_context.exception = std::current_exception();
