@@ -21,7 +21,6 @@ public:
 
     std::exception_ptr exception;
     FiberStack<> stack;
-    bool exit_flag = false;
     boost::context::fiber fiber;
 
     Poco::Timespan receive_timeout;
@@ -150,10 +149,6 @@ public:
 
     ~RemoteQueryExecutorReadContext()
     {
-        exit_flag = true;
-        while (fiber)
-            fiber = std::move(fiber).resume();
-
         /// socket_fd is closed by Poco::Net::Socket
         /// timer_fd is closed by TimerDescriptor
         close(epoll_fd);
@@ -168,16 +163,13 @@ public:
         {
             try
             {
-                while (!read_context.exit_flag)
+                while (true)
                 {
                     connections.setFiber(&sink);
 
                     read_context.is_read_in_progress = true;
                     read_context.packet = connections.receivePacket();
                     read_context.is_read_in_progress = false;
-
-                    if (read_context.exit_flag)
-                        break;
 
                     sink = std::move(sink).resume();
                 }
