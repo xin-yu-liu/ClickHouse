@@ -27,27 +27,14 @@ public:
     MultiplexedConnections & connections;
 
     TimerDescriptor timer{CLOCK_MONOTONIC, 0};
-    int socket_fd;
+    int socket_fd = -1;
     int epoll_fd;
 
     explicit RemoteQueryExecutorReadContext(MultiplexedConnections & connections_) : connections(connections_)
     {
-        auto & socket = connections.getSocket();
-        socket_fd = socket.impl()->sockfd();
-        receive_timeout = socket.impl()->getReceiveTimeout();
-
-        socket_fd = epoll_create(2);
-        if (-1 == socket_fd)
+        epoll_fd = epoll_create(2);
+        if (-1 == epoll_fd)
             throwFromErrno("Cannot create epoll descriptor", ErrorCodes::CANNOT_OPEN_FILE);
-
-        {
-            epoll_event socket_event;
-            socket_event.events = EPOLLIN | EPOLLPRI;
-            socket_event.data.fd = socket_fd;
-
-            if (-1 == epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_event.data.fd, &socket_event))
-                throwFromErrno("Cannot add socket descriptor to epoll", ErrorCodes::CANNOT_OPEN_FILE);
-        }
 
         {
             epoll_event timer_event;
@@ -61,16 +48,28 @@ public:
         fiber = boost::context::fiber(std::allocator_arg_t(), stack, Routine{connections, *this});
     }
 
-    static void initialize(std::unique_ptr<Self> & read_context, MultiplexedConnections & connections)
+    void setSocket(Poco::Net::Socket & socket)
     {
-        try
+        int fd = socket.impl()->sockfd();
+        if (fd == socket_fd)
+            return;
+
+        epoll_event socket_event;
+        socket_event.events = EPOLLIN | EPOLLPRI;
+        socket_event.data.fd = fd;
+
+        if (socket_fd != -1)
         {
-            read_context = std::make_unique<Self>(connections);
+            if (-1 == epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, &socket_event))
+                throwFromErrno("Cannot remove socket descriptor to epoll", ErrorCodes::CANNOT_OPEN_FILE);
         }
-        catch (DB::Exception & e)
-        {
-            e.addMessage(" while reading from socket ({})", connections.getSocket().peerAddress().toString());
-        }
+
+        socket_fd = fd;
+
+        if (-1 == epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &socket_event))
+            throwFromErrno("Cannot add socket descriptor to epoll", ErrorCodes::CANNOT_OPEN_FILE);
+
+        receive_timeout = socket.impl()->getReceiveTimeout();
     }
 
     void checkTimeout() const
@@ -82,6 +81,7 @@ public:
         catch (DB::Exception & e)
         {
             e.addMessage(" while reading from socket ({})", connections.getSocket().peerAddress().toString());
+            throw;
         }
     }
 
@@ -124,10 +124,27 @@ public:
 
     void resumeRoutine()
     {
+        if (is_read_in_progress)
+            checkTimeout();
+
         fiber = std::move(fiber).resume();
 
         if (exception)
             std::rethrow_exception(std::move(exception));
+
+        if (is_read_in_progress)
+        {
+            auto & socket = connections.getSocket();
+            try
+            {
+                setSocket(socket);
+            }
+            catch (DB::Exception & e)
+            {
+                e.addMessage(" while reading from socket ({})", socket.peerAddress().toString());
+                throw;
+            }
+        }
     }
 
     ~RemoteQueryExecutorReadContext()

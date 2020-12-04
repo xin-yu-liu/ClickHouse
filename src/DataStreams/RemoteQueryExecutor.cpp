@@ -219,10 +219,7 @@ std::variant<Block, int> RemoteQueryExecutor::read(std::unique_ptr<ReadContext> 
     }
 
     if (!read_context)
-        ReadContext::initialize(read_context, *multiplexed_connections);
-
-    if (read_context->is_read_in_progress)
-        read_context->checkTimeout();
+        read_context = std::make_unique<ReadContext>(*multiplexed_connections);
 
     do
     {
