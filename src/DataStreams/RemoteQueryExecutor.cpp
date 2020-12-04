@@ -183,6 +183,8 @@ public:
     };
 };
 
+void destroyRemoteQueryExecutorReadContext(std::unique_ptr<RemoteQueryExecutorReadContext>) {}
+
 RemoteQueryExecutor::RemoteQueryExecutor(
     Connection & connection,
     const String & query_, const Block & header_, const Context & context_, const Settings * settings,

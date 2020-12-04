@@ -17,7 +17,10 @@ RemoteSource::RemoteSource(RemoteQueryExecutorPtr executor, bool add_aggregation
             add_aggregation_info = true;
 }
 
-RemoteSource::~RemoteSource() = default;
+RemoteSource::~RemoteSource()
+{
+    destroyRemoteQueryExecutorReadContext(std::move(read_context));
+}
 
 ISource::Status RemoteSource::prepare()
 {
