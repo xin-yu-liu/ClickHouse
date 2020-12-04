@@ -179,7 +179,7 @@ public:
             }
 
             return std::move(sink);
-        };
+        }
     };
 };
 
