@@ -20,7 +20,7 @@ struct BlockStreamProfileInfo;
 using ProfileInfoCallback = std::function<void(const BlockStreamProfileInfo & info)>;
 
 class RemoteQueryExecutorReadContext;
-static void destroyRemoteQueryExecutorReadContext(std::unique_ptr<RemoteQueryExecutorReadContext>);
+void destroyRemoteQueryExecutorReadContext(std::unique_ptr<RemoteQueryExecutorReadContext>);
 
 /// This class allows one to launch queries on remote replicas of one shard and get results
 class RemoteQueryExecutor
