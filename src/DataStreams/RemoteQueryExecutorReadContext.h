@@ -21,6 +21,7 @@ public:
 
     std::exception_ptr exception;
     FiberStack<> stack;
+    std::mutex fiber_mutex;
     boost::context::fiber fiber;
 
     Poco::Timespan receive_timeout;
@@ -122,12 +123,18 @@ public:
             timer.setRelative(receive_timeout);
     }
 
-    void resumeRoutine()
+    bool resumeRoutine()
     {
         if (is_read_in_progress)
             checkTimeout();
 
-        fiber = std::move(fiber).resume();
+        {
+            std::lock_guard guard(fiber_mutex);
+            if (!fiber)
+                return false;
+
+            fiber = std::move(fiber).resume();
+        }
 
         if (exception)
             std::rethrow_exception(std::move(exception));
@@ -145,6 +152,14 @@ public:
                 throw;
             }
         }
+
+        return true;
+    }
+
+    void cancel()
+    {
+        std::lock_guard guard(fiber_mutex);
+        boost::context::fiber to_destroy = std::move(fiber);
     }
 
     ~RemoteQueryExecutorReadContext()
