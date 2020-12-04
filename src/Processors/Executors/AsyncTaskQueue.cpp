@@ -29,10 +29,9 @@ void AsyncTaskQueue::addTask(void * data, int fd)
 {
     epoll_event socket_event;
     socket_event.events = EPOLLIN | EPOLLPRI;
-    socket_event.data.fd = fd;
     socket_event.data.ptr = data;
 
-    if (-1 == epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_event.data.fd, &socket_event))
+    if (-1 == epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &socket_event))
         throwFromErrno("Cannot add socket descriptor to epoll", ErrorCodes::CANNOT_OPEN_FILE);
 
     ++num_tasks;
