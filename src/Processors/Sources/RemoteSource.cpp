@@ -1,5 +1,6 @@
 #include <Processors/Sources/RemoteSource.h>
 #include <DataStreams/RemoteQueryExecutor.h>
+#include <DataStreams/RemoteQueryExecutorReadContext.h>
 #include <Processors/Transforms/AggregatingTransform.h>
 #include <DataTypes/DataTypeAggregateFunction.h>
 
@@ -17,10 +18,7 @@ RemoteSource::RemoteSource(RemoteQueryExecutorPtr executor, bool add_aggregation
             add_aggregation_info = true;
 }
 
-RemoteSource::~RemoteSource()
-{
-    destroyRemoteQueryExecutorReadContext(std::move(read_context));
-}
+RemoteSource::~RemoteSource() = default;
 
 ISource::Status RemoteSource::prepare()
 {
