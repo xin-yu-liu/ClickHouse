@@ -165,13 +165,11 @@ public:
             {
                 while (true)
                 {
-                    read_context.is_read_in_progress = true;
                     connections.setFiber(&sink);
 
+                    read_context.is_read_in_progress = true;
                     read_context.packet = connections.receivePacket();
-
                     read_context.is_read_in_progress = false;
-                    connections.setFiber(nullptr);
 
                     sink = std::move(sink).resume();
                 }
